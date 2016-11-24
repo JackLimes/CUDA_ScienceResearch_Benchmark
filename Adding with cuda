@@ -1,0 +1,44 @@
+// Changing the N short constant is the number of threads ran at the same time. This will be changed autmagically
+// to the number of cores available
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
+#include <stdio.h>
+
+const short N = 10;
+
+
+
+__global__ void agg(int *b, unsigned int size) {
+	b[blockIdx.x] = b[blockIdx.x] + 1;
+}
+
+int main(void) {
+	int b[N] = { 0 };
+	int *d_b;
+	int size = sizeof(int);
+	cudaSetDevice(0);
+
+
+	for (int i = 0; i < 10; i++) {
+		// Allocate space for device copies of a, b, c
+		cudaMalloc((void **)&d_b, N * size);
+
+		// Copy inputs to device
+		cudaMemcpy(d_b, &b, N * sizeof(int), cudaMemcpyHostToDevice);
+
+		agg <<<N, 1 >>> (d_b, N);
+
+		// Copy result back to host
+		cudaMemcpy(&b, d_b, N * sizeof(int), cudaMemcpyDeviceToHost);
+
+		// Cleanup
+		cudaFree(d_b);
+
+		printf("Result: %d %d %d %d %d %d %d %d %d %d.", b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9]);
+		getchar();
+	}
+	cudaDeviceReset();
+	return 0;
+
+}
