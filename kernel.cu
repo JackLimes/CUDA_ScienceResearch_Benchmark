@@ -1,28 +1,22 @@
-
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <ctime>
 #include <stdio.h>
 #include <stdlib.h>
-
-
+#include<iostream>
+using namespace std;
 
 
 
 
 __global__ void agg(int *b, unsigned int size) {
-	clock_t begin = clock();
-	while (begin - clock() < 1000) {
 		b[blockIdx.x] = b[blockIdx.x] + 1;
-	}
 }
 
 int main(void) {
-	printf("Running...");
 
 	//Hailiang Zhang's device counting code
 	int deviceCount, device;
-	int gpuDeviceCount = 0;
 	short threads = 0;
 	struct cudaDeviceProp properties;
 	cudaError_t cudaResultCode = cudaGetDeviceCount(&deviceCount);
@@ -40,37 +34,46 @@ int main(void) {
 			}
 	}
 	threads = properties.multiProcessorCount;
-	printf("%d", threads);
+	printf("%d parallel blocks (because your gpu can support it!)\n", threads);
+
 	//talk about how N must for some reason be a constant value. Must be manually changed for each graphics card.
-	const short N = 15;
-	int b[N] = { 0 };
+	const short N = threads;
+	int b[100] = { 0 }; //make this array so big there's no way any gpu will go over it.
 	int *d_b;
+	int span;
+	_int64 result;
+	clock_t begin = clock();
+
 	cudaSetDevice(0);
 
-	//while (clock() - begin < 1000){
-		// Allocate space for device copies of  b
-		cudaMalloc((void **)&d_b, N * sizeof(int));
+	// Allocate space for device copies of  b and begin
+	cudaMalloc((void **)&d_b, N * sizeof(int));
 
-		// Copy inputs to device
-		cudaMemcpy(d_b, &b, N * sizeof(int), cudaMemcpyHostToDevice);
+	// Copy inputs to device
+	cudaMemcpy(d_b, &b, N * sizeof(int), cudaMemcpyHostToDevice);
+	printf("How long do you wish to run this test in milliseconds? (1 second = 1000 Milliseconds) "); cin >> span;
+	printf("Running...\n");
+	while(clock() - begin < span) {
+		agg << <N, 1 >> > (d_b, N);
+	}
 
-		agg <<<N, 1 >>> (d_b, N);
+	// Copy result back to host
+	cudaMemcpy(&b, d_b, N * sizeof(int), cudaMemcpyDeviceToHost);
 
-		// Copy result back to host
-		cudaMemcpy(&b, d_b, N * sizeof(int), cudaMemcpyDeviceToHost);
-
-		// Cleanup
-		cudaFree(d_b);
-
+	// Cleanup
+	cudaFree(d_b);
 		
-		
-		//getchar();
-	//}
 
-
-	printf("Result: %d per element, with %d threads in pararallel leads to a final score of...\n%d", b[0], N, (b[0]* N));
-	getchar();
+	result = b[0] * N;
+	printf("Result: %d per element, with %d threads in pararallel leads to a final score of...\n%d", b[0], N, result);
+	printf("\n");
+	printf("{");
+	for (int i = 0; i < N -1; i++) {
+		printf("%d, ", b[i]);
+	}
+	printf("%d}\n", b[N - 1]);
 	cudaDeviceReset();
+	system("pause");
 	return 0;
 
 }
